@@ -1,0 +1,467 @@
+import express, { Request, Response, NextFunction } from 'express';
+import mongoose, { Document, Schema } from 'mongoose';
+import cors from 'cors';
+import rateLimit from 'express-rate-limit';
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Interfaces
+interface IProblem extends Document {
+  problemName: string;
+  statement: string;
+  input: string;
+  output: string;
+  exampleInput: string;
+  exampleOutput: string;
+  allInput?: string;
+  allOutput?: string;
+  note?: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+  tags: string[];
+  statistics: {
+    submissions: number;
+    accepted: number;
+    views: number;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface ProblemRequestBody {
+  problemName: string;
+  statement: string;
+  input: string;
+  output: string;
+  exampleInput: string;
+  exampleOutput: string;
+  allInput?: string;
+  allOutput?: string;
+  note?: string;
+  difficulty?: 'Easy' | 'Medium' | 'Hard';
+  tags?: string[];
+}
+
+interface QueryParams {
+  page?: string;
+  limit?: string;
+  difficulty?: string;
+  search?: string;
+  q?: string;
+}
+
+// Middleware
+app.use(cors({
+  origin: ['http://localhost:3001', 'http://localhost:3000'], // Add your frontend URLs
+  credentials: true
+}));
+app.use(express.json({ limit: '10mb' })); // Allow larger payloads for test cases
+app.use(express.urlencoded({ extended: true }));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+});
+app.use('/api/', limiter);
+
+// MongoDB Connection
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/competitive_programming', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+const db = mongoose.connection;
+db.on('error', console.error.bind(console, 'connection error:'));
+db.once('open', () => {
+  console.log('Connected to MongoDB');
+});
+
+// Problem Schema
+const problemSchema = new Schema<IProblem>({
+  problemName: {
+    type: String,
+    required: true,
+    trim: true,
+    maxLength: 200
+  },
+  statement: {
+    type: String,
+    required: true,
+    maxLength: 10000
+  },
+  input: {
+    type: String,
+    required: true,
+    maxLength: 5000
+  },
+  output: {
+    type: String,
+    required: true,
+    maxLength: 5000
+  },
+  exampleInput: {
+    type: String,
+    required: true,
+    maxLength: 100000 // 10^5 constraint
+  },
+  exampleOutput: {
+    type: String,
+    required: true,
+    maxLength: 100000
+  },
+  allInput: {
+    type: String,
+    maxLength: 500000 // Larger for multiple test cases
+  },
+  allOutput: {
+    type: String,
+    maxLength: 500000
+  },
+  note: {
+    type: String,
+    maxLength: 2000
+  },
+  difficulty: {
+    type: String,
+    enum: ['Easy', 'Medium', 'Hard'],
+    default: 'Medium'
+  },
+  tags: [{
+    type: String,
+    maxLength: 50
+  }],
+  statistics: {
+    submissions: { type: Number, default: 0 },
+    accepted: { type: Number, default: 0 },
+    views: { type: Number, default: 0 }
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+// Indexes for better performance
+problemSchema.index({ problemName: 'text', tags: 1 });
+problemSchema.index({ difficulty: 1, 'statistics.accepted': -1 });
+problemSchema.index({ createdAt: -1 });
+
+const Problem = mongoose.model<IProblem>('Problem', problemSchema);
+
+// Validation middleware
+const validateProblem = (req: Request<{}, {}, ProblemRequestBody>, res: Response, next: NextFunction): void => {
+  const { problemName, statement, input, output, exampleInput, exampleOutput } = req.body;
+  
+  if (!problemName || !statement || !input || !output || !exampleInput || !exampleOutput) {
+    res.status(400).json({
+      success: false,
+      message: 'Missing required fields: problemName, statement, input, output, exampleInput, exampleOutput'
+    });
+    return;
+  }
+  
+  // Check length constraints
+  if (exampleInput.length > 100000 || exampleOutput.length > 100000) {
+    res.status(400).json({
+      success: false,
+      message: 'Example input/output exceeds maximum length of 10^5 characters'
+    });
+    return;
+  }
+  
+  next();
+};
+
+// Routes
+
+// POST /problemset - Create a new problem
+app.post('/problemset', validateProblem, async (req: Request<{}, {}, ProblemRequestBody>, res: Response): Promise<void> => {
+  try {
+    const {
+      problemName,
+      statement,
+      input,
+      output,
+      exampleInput,
+      exampleOutput,
+      allInput = '',
+      allOutput = '',
+      note = ''
+    } = req.body;
+
+    // Check if problem with same name already exists
+    const existingProblem = await Problem.findOne({ problemName });
+    if (existingProblem) {
+      res.status(409).json({
+        success: false,
+        message: 'Problem with this name already exists'
+      });
+      return;
+    }
+
+    const newProblem = new Problem({
+      problemName,
+      statement,
+      input,
+      output,
+      exampleInput,
+      exampleOutput,
+      allInput,
+      allOutput,
+      note
+    });
+
+    const savedProblem = await newProblem.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Problem created successfully',
+      data: {
+        id: savedProblem._id,
+        problemName: savedProblem.problemName,
+        createdAt: savedProblem.createdAt
+      }
+    });
+
+  } catch (error) {
+    console.error('Error creating problem:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
+    });
+  }
+});
+
+// GET /problemset - Get all problems (with pagination)
+app.get('/problemset', async (req: Request<{}, {}, {}, QueryParams>, res: Response): Promise<void> => {
+  try {
+    const page = parseInt(req.query.page || '1');
+    const limit = parseInt(req.query.limit || '10');
+    const difficulty = req.query.difficulty;
+    const search = req.query.search;
+    
+    const skip = (page - 1) * limit;
+    
+    // Build query
+    const query: any = {};
+    if (difficulty) {
+      query.difficulty = difficulty;
+    }
+    if (search) {
+      query.$text = { $search: search };
+    }
+
+    const problems = await Problem.find(query)
+      .select('problemName difficulty statistics createdAt') // Don't send full problem content
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await Problem.countDocuments(query);
+
+    res.json({
+      success: true,
+      data: problems,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalProblems: total,
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching problems:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching problems'
+    });
+  }
+});
+
+// GET /problemset/:id - Get specific problem
+app.get('/problemset/:id', async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+  try {
+    const problem = await Problem.findById(req.params.id);
+    
+    if (!problem) {
+      res.status(404).json({
+        success: false,
+        message: 'Problem not found'
+      });
+      return;
+    }
+
+    // Increment view count
+    await Problem.findByIdAndUpdate(req.params.id, { $inc: { 'statistics.views': 1 } });
+
+    res.json({
+      success: true,
+      data: problem
+    });
+
+  } catch (error) {
+    console.error('Error fetching problem:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching problem'
+    });
+  }
+});
+
+// PUT /problemset/:id - Update problem
+app.put('/problemset/:id', validateProblem, async (req: Request<{ id: string }, {}, ProblemRequestBody>, res: Response): Promise<void> => {
+  try {
+    const {
+      problemName,
+      statement,
+      input,
+      output,
+      exampleInput,
+      exampleOutput,
+      allInput,
+      allOutput,
+      note
+    } = req.body;
+
+    const updatedProblem = await Problem.findByIdAndUpdate(
+      req.params.id,
+      {
+        problemName,
+        statement,
+        input,
+        output,
+        exampleInput,
+        exampleOutput,
+        allInput,
+        allOutput,
+        note,
+        updatedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedProblem) {
+      res.status(404).json({
+        success: false,
+        message: 'Problem not found'
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: 'Problem updated successfully',
+      data: updatedProblem
+    });
+
+  } catch (error) {
+    console.error('Error updating problem:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating problem'
+    });
+  }
+});
+
+// DELETE /problemset/:id - Delete problem
+app.delete('/problemset/:id', async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+  try {
+    const deletedProblem = await Problem.findByIdAndDelete(req.params.id);
+
+    if (!deletedProblem) {
+      res.status(404).json({
+        success: false,
+        message: 'Problem not found'
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: 'Problem deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error deleting problem:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting problem'
+    });
+  }
+});
+
+// GET /problemset/search - Search problems
+app.get('/problemset/search', async (req: Request<{}, {}, {}, QueryParams>, res: Response): Promise<void> => {
+  try {
+    const { q, difficulty, limit = '10' } = req.query;
+    
+    const query: any = {};
+    
+    if (q) {
+      query.$text = { $search: q };
+    }
+    
+    if (difficulty) {
+      query.difficulty = difficulty;
+    }
+
+    const problems = await Problem.find(query)
+      .select('problemName difficulty statistics')
+      .limit(parseInt(limit))
+      .sort({ score: { $meta: 'textScore' } });
+
+    res.json({
+      success: true,
+      data: problems
+    });
+
+  } catch (error) {
+    console.error('Error searching problems:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error searching problems'
+    });
+  }
+});
+
+// Health check endpoint
+app.get('/health', (req: Request, res: Response): void => {
+  res.json({
+    success: true,
+    message: 'API is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Error handling middleware
+app.use((err: Error, req: Request, res: Response, next: NextFunction): void => {
+  console.error(err.stack);
+  res.status(500).json({
+    success: false,
+    message: 'Something went wrong!'
+  });
+});
+
+// 404 handler
+app.use('*', (req: Request, res: Response): void => {
+  res.status(404).json({
+    success: false,
+    message: 'Route not found'
+  });
+});
+
+// Start server
+app.listen(PORT, (): void => {
+  console.log(`Server is running on port ${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
+});
+
+export default app;
