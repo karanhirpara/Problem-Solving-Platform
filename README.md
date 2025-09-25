@@ -4,9 +4,9 @@ A full-featured online judge and competitive programming platform that allows us
 
 ## Core Functionality
 
--**Problem Solving Engine** Submit and test solutions against multiple test cases.
--**Automated Testing**  Instant feedback with detailed test case results.
--**Code Execution** Secure environment for running user code.
+- **Problem Solving Engine** Submit and test solutions against multiple test cases.
+- **Automated Testing**  Instant feedback with detailed test case results.
+- **Code Execution** Secure environment for running user code.
 
 ## Contest System
 
