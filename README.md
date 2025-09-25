@@ -43,7 +43,7 @@ A full-featured online judge and competitive programming platform that allows us
 - **PostgreSQL:** Submissions and leaderboard data storage.  
 - **Redis:** Real-time leaderboard caching and session management.  
 
-## Design
+##  System Design
 
 ![Project Design](design.png)
 
