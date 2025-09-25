@@ -11,6 +11,7 @@ interface IProblem extends Document {
   allOutput: string;
   note?: string;
   visible: boolean;
+  point: number;
   contest: mongoose.Schema.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -63,6 +64,10 @@ const problemSchema = new Schema<IProblem>({
     type: Boolean,
     default: false
   },  
+  point: {
+    type: Number,
+    default: 0
+  },
   contest: {
     type: Schema.Types.ObjectId,
     ref: 'Contest'

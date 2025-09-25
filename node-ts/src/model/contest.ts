@@ -46,8 +46,8 @@ const contestSchema = new Schema<Contest>({
   },
    status: {
     type: String,
-    enum: ['LIVE', 'UPCOMING', 'FINISHED'],
-    default: 'UPCOMING'
+    enum: ['live', 'upcoming', 'finished'],
+    default: 'upcoming'
    },
   createdAt: {
     type: Date,

@@ -19,7 +19,7 @@ const refreshTokengen = async (req: Request, res: Response) => {
     // ✅ Verify token
     const decrypt = jwt.verify(
       refreshtoken,
-      process.env.ACCESS_TOKEN_SECRET
+      process.env.REFRESH_TOKEN_SECRET!
     ) as JwtPayload & { _id: string };
 
     if (!decrypt || !decrypt._id) {

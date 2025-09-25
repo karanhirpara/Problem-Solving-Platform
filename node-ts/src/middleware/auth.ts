@@ -1,35 +1,60 @@
-const ApiError = require("../utils/ApiError.js");
-const asyncHandler = require("../utils/asyncHandler.js");
-const JWT = require("jsonwebtoken")
-const User = require("../models/user.model.js")
-const verifyuser = asyncHandler(async(req,res,next)=>{
- 
-   try {
-     const AccessToken = req.cookies?.AccessToken || req.handler("AccessToken")?.replace("Bearer ","")
-     
-     if(!AccessToken){
-          throw new ApiError(404,"AccessToken error")
-     }
-     
-     const checkaccesstoken = JWT.verify(AccessToken,process.env.ACCESS_TOKEN_SECRET);
+import JWT from "jsonwebtoken";
+import User from "../model/user.js";
+import dotenv from "dotenv";
+dotenv.config();
+
+export const verifyuser = async (req: any, res: any, next: any) => {
+  try {
+   
+    // ✅ Extract token from cookies or Authorization header
+    const AccessToken =
+      req.cookies?.AccessToken ||
+      (req.headers["authorization"]?.replace("Bearer ", "") ?? null);
+
+    if (!AccessToken) {
+      return res.status(401).json({ message: "Access token not provided" });
+    }
+   
+    // ✅ Check if secret exists
+    if (!process.env.ACCESS_TOKEN_SECRET) {
+      return res.status(500).json({ message: "Server configuration error" });
+    }
 
     
-     
-     const user = await User.findById(checkaccesstoken._id).
-                    select("-password -refreshToken")
-     if(!user){
-          throw new ApiError(400,"user not found");
-     }
-     
-     
-     req.user = user;
-
-     next();
-
-   } catch (error) {
-    throw new ApiError(404,"AccessToken error");
     
-   }
-})
+    // ✅ Verify token
+    const checkaccesstoken: any = JWT.verify(
+      AccessToken,
+      process.env.ACCESS_TOKEN_SECRET
+    );
 
-module.exports = verifyuser;
+    // ✅ Find user
+    const user = await User.findById(checkaccesstoken.id || checkaccesstoken._id)
+      .select("-password -refreshToken");
+
+    if (!user) {
+      return res.status(401).json({ message: "Invalid access token or user not found" });
+    }
+
+    // ✅ Attach user data to request
+    req.user = user;
+    req.userId = user._id;
+
+    next();
+  } catch (error: any) {
+    // ✅ Handle specific JWT errors
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: "Access token expired" });
+    }
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ message: "Invalid access token" });
+    }
+    
+    // ✅ Handle other errors
+    console.error('Authentication error:', error);
+    return res.status(401).json({ message: "Authentication failed" });
+  }
+};
+
+
+

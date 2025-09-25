@@ -1,13 +1,17 @@
 import { simpleTimeout } from "../limits/timelimit.js";
 import { runCppCode } from "../compo/coderunner.js";
 import {Problem} from "../model/problem.js"
-let lang = "cpp",code="",problem=12;
+
+let lang = "cpp",code="",problem=0;
 
 let status="accepted";
 
-export const collect =  (summitedlang:string,summitedcode:string,problemid:number)=>{
+export const collect = async (summitedlang:string,summitedcode:string,problemid:number)=>{
    lang =summitedlang,code = summitedcode,problem=problemid;
-}
+  
+   
+
+if(!problem) throw new Error("problem not found");
 const selectedProblem = await Problem.findById(problem); // not { _id: problem }
 
 if (!selectedProblem) {
@@ -16,7 +20,8 @@ if (!selectedProblem) {
 
 const allInput = selectedProblem.allInput ?? '';
 const allOutput = selectedProblem.allOutput ?? '';
-export const runner =async ()=>{
+
+ const runner =async ()=>{
 
 if(lang=="cpp"){
     
@@ -29,12 +34,12 @@ try{ const arr: string[] = allInput
   .split(/\n\*\n/)        // split where the line is exactly '*'
   .map(s => s.trim())     // trim each part
   .filter(Boolean);
-  
+ 
   for (let i = 0; i < arr.length; i++) {
     const input = arr[i];
-    let program = "",result=false;
+    let program:string ,result=false;
     try {
-         program = await runCppCode(code, input);
+         program = String( await runCppCode(code, input));
 
     }
     catch (error) {
@@ -51,9 +56,9 @@ try{ const arr: string[] = allInput
     }
     result ? status = "accepted" : status = "time limit exceeded";
     if(status=="accepted")
-    program === arr2[i] ? status = "accepted" : status = "wrong answer";
+    program === arr2[i].trim() ? status = "accepted" : status = "wrong answer";
   }
-
+  
   return status;
 
 }
@@ -64,3 +69,7 @@ catch (error) {
 }
  }
 }
+
+return await runner();
+}
+

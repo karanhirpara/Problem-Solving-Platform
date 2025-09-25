@@ -23,9 +23,9 @@ const userlogin = async (req: any, res: any) => {
     }
     
     // Generate tokens
-    const accessToken = checkUser.generateAccessToken();
+    const accessToken = await checkUser.generateAccessToken();
    
-    const refreshToken = checkUser.generateRefreshToken();
+    const refreshToken = await checkUser.generateRefreshToken();
     
     // Save refresh token in DB
     checkUser.refreshToken = refreshToken;

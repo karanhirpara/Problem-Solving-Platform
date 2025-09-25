@@ -4,24 +4,45 @@ import {connectDB} from './conectdb/dbconect.js'
 import {Problem} from './model/problem.js'
 import {runCppCode} from './compo/coderunner.js'
 import {Contest} from './model/contest.js'
-import { collect , runner} from './runner/runner.js';
-import {updateStatus} from './compo/contestupdate.js'
+import {collect} from "./runner/runner.js";
+import {verifyuser} from './middleware/auth.js'
+import {addIndatabase} from './compo/addIndata.js'
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import userregistration from './compo/user/registration.controllers.js'
 import userlogin from './compo/user/login.js'
+import main from "./conectdb/dbconect.js";
+import {updateContestStatuses} from './compo/contestupdate.js'
+import { startLeaderboardWS } from "./compo/leaderboad.js";
 const port = Number(process.env.PORT) || 3000
 const app = express()
 app.use(express.json({limit:"16kb"}));
 app.use(express.urlencoded());
 app.use(express.static("public"));
 app.use(cookieParser());
-app.use(cors({ origin: '*' }));
-
-app.use(express.json())
+app.use(cors({ origin: "http://localhost:8080",  // your frontend URL
+  credentials: true,    }));
+import http from 'http';
+const server = http.createServer(app);
 console.log("port",port)
-await connectDB()
-
+await connectDB();
+await main();
+setInterval(updateContestStatuses, 60 * 1000);
+const { updateUserPoints } = startLeaderboardWS();
+// app.post('/fun',async(req,res)=>{
+//   try {
+//     await test();
+//     res.json({
+//       data:2
+//   })
+//   } catch (error) {
+//     console.error('Error fetching problems:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Error fetching problems'
+//     });
+//   }
+// })
 app.post('/problem',  async (req, res) => {
   try {
     const {
@@ -34,7 +55,8 @@ app.post('/problem',  async (req, res) => {
       allInput = '',
       allOutput = '',
       note = '',
-       contestId
+       contestId,
+       point
     } = req.body;
 
     // Check if problem with same name already exists
@@ -57,7 +79,8 @@ app.post('/problem',  async (req, res) => {
       allInput,
       allOutput,
       note,
-      contest: contestId
+      contest: contestId,
+      point
     }
   
   );
@@ -85,12 +108,13 @@ app.post('/problem',  async (req, res) => {
 });
 
 //get a problems
-app.get('/problemset',async(req, res)=> {
+app.get('/problemset',verifyuser,async(req, res)=> {
   try {
+
+
    const problems = await Problem.find({ visible:false })
   .sort({ createdAt: -1 });// Newest first
-  const username= req.cookies.user; 
-  console.log(username);
+  
     res.json({
       data:problems
     });
@@ -178,25 +202,33 @@ app.post('/login',userlogin);
 
 // // Express route for updating visibility by id (TypeScript
 
-// app.post('/run', async (req, res) => {
-//   const { code,lang,problemid} = req.body;
+app.post("/run",verifyuser,async (req, res) => {
+  console.log(1);
+  const { code, lang, problemid } = req.body;
+   const user = (req as any).userId;
+  try {
+    const result = await collect(lang, code, problemid);
+    const problem = await Problem.findById(problemid);
+   await updateUserPoints(problem!.contest.toString() ?? "defaultContestId");
+
+
    
-//       try{collect(lang,code,problemid);
-//       const result = await runner();
-//       res.json({
-//         success: true,
-//         data: result
-//       });}
-//       catch (error) {
-//         console.error('Error running code:', error);
-//         res.status(500).json({
-    
-//           message: 'error in index /run',
-          
-//         });
-//       }
-   
-// })
+    const added = await addIndatabase(user,problemid,result?result:"");
+    console.log(result);
+    res.json({
+      success: true,
+      data: result,
+      result: added
+    });
+  } catch (error) {
+    console.error("Error running code:", error);
+    res.status(500).json({
+      success: false,
+      message: "error in /run",
+    });
+  }
+});
+
 
 // app.get("/updatestatus",async(req,res)=>{
 //     try{
@@ -233,7 +265,6 @@ app.get("/contestproblems/:contestid",async(req,res)=>{
         });
       }
 })
- 
-app.listen(port, () => {
-	console.log(`Server listening on http://localhost:${port}`)
-})
+
+
+server.listen(3000,()=>console.log("port 3000"));

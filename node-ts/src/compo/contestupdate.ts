@@ -1,40 +1,39 @@
+// utils/updateContestStatus.ts
 import { Contest } from "../model/contest.js";
-// Demo usage
-import { Problem  } from "../model/problem.js";
 
-const getCurrentStatus = async (contest: Contest) => {
-    
+export const updateContestStatuses = async () => {
   const now = new Date();
-  const contestStart = new Date(contest .startDate);
-  contestStart.setHours(contest .startTime.getHours(), contest.startTime.getMinutes());
-  
-  const contestEnd = new Date(contest.endDate);
-  contestEnd.setHours(contest.endTime.getHours(), contest.endTime.getMinutes());
 
-  if (now < contestStart) {
-    return 'UPCOMING';
-  } else if (now >= contestStart && now <= contestEnd) {
-    return 'LIVE';
-  } else {
-    return 'FINISHED';
-  }
-   
-};
-
-export const updateStatus = async()=> {
+  // Fetch all contests
   const contests = await Contest.find();
+
   for (const contest of contests) {
-    const newStatus = await getCurrentStatus(contest);
-    if (newStatus !== contest.status) {
+    const contestStart = new Date(contest.startDate);
+    const contestEnd = new Date(contest.endDate);
+
+    // Apply startTime and endTime on top of dates
+    const [startHour, startMin] = contest.startTime.split(":").map(Number);
+    contestStart.setHours(startHour, startMin, 0, 0);
+
+    const [endHour, endMin] = contest.endTime.split(":").map(Number);
+    contestEnd.setHours(endHour, endMin, 0, 0);
+
+    let newStatus = contest.status;
+
+    if (now < contestStart) {
+      newStatus = "upcoming";
+    } else if (now >= contestStart && now <= contestEnd) {
+      newStatus = "live";
+    } else if (now > contestEnd) {
+      newStatus = "finished";
+    }
+
+    // Update only if status changed
+    if (contest.status !== newStatus) {
       contest.status = newStatus;
+      contest.updatedAt = now;
       await contest.save();
-      if(contest.status === 'FINISHED'){
-        const problems = await Problem.find({contest:contest._id});
-        for (const problem of problems) {
-          problem.visible = true;
-          await problem.save();
-        }
-      }
+      console.log(`Contest "${contest.title}" updated to ${newStatus}`);
     }
   }
 };
