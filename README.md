@@ -15,3 +15,20 @@ A full-featured online judge and competitive programming platform that allows us
 - **Problem Sets:** Curated problem collections for contests.  
 - **Time-based Scoring:** Dynamic scoring based on submission time and attempts.  
 
+# Real-time Features
+
+- **Live Leaderboard:** Real-time ranking updates during contests.  
+- **WebSocket Integration:** Instant updates for submissions and rankings.
+
+# User Management
+
+- **Authentication & Authorization:** Secure user registration and login.  
+- **User Profiles:** Personal dashboards with solving history.  
+# 🛠️ Tech Stack
+
+## Frontend
+- **React.js:** Modern UI with component-based architecture.  
+- **JavaScript/ES6+:** Core frontend logic.  
+- **CSS3/Styled Components:** Responsive and modern styling.  
+- **WebSocket Client:** Real-time communication.  
+
