@@ -46,7 +46,7 @@ A full-featured online judge and competitive programming platform that allows us
 ##  System Design
 
 ![Project Design](design.png)
-## Clone the Repository
+### Clone the Repository
 ```bash
 git clone https://github.com/username/repository-name.git
 
