@@ -30,5 +30,17 @@ A full-featured online judge and competitive programming platform that allows us
 - **React.js:** Modern UI with component-based architecture.  
 - **JavaScript/ES6+:** Core frontend logic.  
 - **CSS3/Styled Components:** Responsive and modern styling.  
-- **WebSocket Client:** Real-time communication.  
+- **WebSocket Client:** Real-time communication.
+
+  ## Backend
+- **Node.js:** Server-side JavaScript runtime.  
+- **Express.js:** Web application framework.  
+- **WebSocket:** Real-time bidirectional communication.  
+- **JWT:** Secure authentication tokens.  
+
+## Database & Caching
+- **MongoDB:** Primary database for users, problems, and contests.  
+- **PostgreSQL:** Submissions and leaderboard data storage.  
+- **Redis:** Real-time leaderboard caching and session management.  
+
 
