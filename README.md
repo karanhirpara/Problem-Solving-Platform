@@ -57,6 +57,6 @@ Before getting started, make sure you have the following installed:
   
 ### Clone the Repository
 ```bash
-git clone https://github.com/username/repository-name.git
+git clone https://github.com/karanhirpara/Problem-Solving-Platform.git
 
 
