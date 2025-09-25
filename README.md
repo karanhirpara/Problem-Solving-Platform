@@ -46,7 +46,17 @@ A full-featured online judge and competitive programming platform that allows us
 ##  System Design
 
 ![Project Design](design.png)
+## Prerequisites
+
+Before getting started, make sure you have the following installed:
+
+- **Node.js** (v14 or higher)
+- **PostgreSQL** (v12 or higher)
+- **Redis** (v6 or higher)
+- **npm** or **yarn** package manager
+  
 ### Clone the Repository
 ```bash
 git clone https://github.com/username/repository-name.git
+
 
